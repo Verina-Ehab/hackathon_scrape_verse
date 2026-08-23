@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JOGO City-Pulse | Interactive AI Quest Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore live AI-generated JOGO quests, riddles, and lens hunter targets across Alexandria using our real-time interactive quest map.">
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+      background: #0b0f19;
+    }
+    /* Custom Scrollbar for Quest List */
+    .quest-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .quest-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .quest-scrollbar::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+    .quest-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #4b5563;
+    }
+    /* Leaflet Popup Styling */
+    .leaflet-popup-content-wrapper {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      color: #f3f4f6;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+      padding: 0;
+    }
+    .leaflet-popup-content {
+      margin: 0;
+      padding: 0;
+    }
+    .leaflet-popup-tip {
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .leaflet-container a.leaflet-popup-close-button {
+      color: #9ca3af;
+      padding: 8px 12px;
+    }
+    .leaflet-container a.leaflet-popup-close-button:hover {
+      color: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+  
+  <!-- Header Navbar -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center z-20 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <span class="text-xl">⚡</span>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent leading-none">JOGO City-Pulse</h1>
+        <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">Live AI-Enriched Quests</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span class="hidden md:inline-flex text-xs bg-emerald-950/80 text-emerald-400 px-3 py-1 rounded-full border border-emerald-800/60 font-medium">
+        🟢 30 Active Targets Located
+      </span>
+      <div class="text-[10px] text-right text-slate-400">
+        <div>Engineered with Gemini 3.5 Flash-Lite</div>
+        <div>Alexandria, Egypt</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Content -->
+  <main class="flex flex-1 relative overflow-hidden">
+    
+    <!-- Left Sidebar for Quests List & Filters -->
+    <section class="absolute md:relative inset-y-0 left-0 w-full md:w-96 bg-slate-950/80 backdrop-blur-lg border-r border-slate-800/80 flex flex-col z-20 transition-all duration-300 transform -translate-x-full md:translate-x-0" id="sidebar">
+      
+      <!-- Search & Filters Container -->
+      <div class="p-4 border-b border-slate-800/60 space-y-3 shrink-0">
+        <!-- Search bar -->
+        <div class="relative">
+          <input type="text" id="quest-search" placeholder="Search venues or riddles..." class="w-full bg-slate-900/60 border border-slate-800 rounded-lg px-4 py-2.5 pl-10 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-200 placeholder-slate-500 transition-all" />
+          <span class="absolute left-3.5 top-3 text-slate-500 text-sm">🔍</span>
+        </div>
+        
+        <!-- Category Filters -->
+        <div>
+          <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Filter by Category</p>
+          <div class="flex flex-wrap gap-1.5" id="category-filters">
+            <button class="filter-btn active text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all" data-category="all">All</button>
+            <button class="filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200" data-category="food">Food</button>
+            <button class="filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200" data-category="history">History</button>
+            <button class="filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200" data-category="cultural">Cultural</button>
+            <button class="filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200" data-category="hidden_gem">Hidden Gem</button>
+            <button class="filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200" data-category="entertainment">Entertainment</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrollable Quest List -->
+      <div class="flex-1 overflow-y-auto quest-scrollbar p-3 space-y-2.5" id="quest-list">
+        <!-- Dynamic quest list will load here -->
+        <div class="flex items-center justify-center h-full text-slate-500 text-sm">
+          Loading quests from Alexandria...
+        </div>
+      </div>
+    </section>
+
+    <!-- Map Toggle Button for Mobile Screens -->
+    <button class="md:hidden absolute bottom-4 right-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg z-30 flex items-center space-x-2" id="mobile-toggle-btn">
+      <span id="toggle-icon">📋</span>
+      <span id="toggle-text">Show Quests</span>
+    </button>
+
+    <!-- Map Container -->
+    <div class="flex-1 relative z-10">
+      <div id="map"></div>
+    </div>
+
+  </main>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Local fallback data for file:// protocol -->
+  <script src="jogo_quests.js"></script>
+  
+  <script>
+    // Theme colors matching quest categories
+    const categoryColors = {
+      food: '#f97316', // Orange
+      history: '#14b8a6', // Teal
+      cultural: '#a855f7', // Purple
+      hidden_gem: '#10b981', // Emerald
+      entertainment: '#3b82f6', // Blue
+      default: '#6366f1' // Indigo
+    };
+
+    // Initialize Map centered on Alexandria's coastline
+    const map = L.map('map', {
+      zoomControl: false // Custom placement later
+    }).setView([31.2001, 29.9187], 13.5);
+
+    // Dark Premium Base Tiles (CartoDB Dark All)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+
+    // Position Zoom Controls on Top Right
+    L.control.zoom({
+      position: 'topright'
+    }).addTo(map);
+
+    // References to hold markers and quest data
+    let allQuests = [];
+    let questMarkers = {};
+    let activeMarker = null;
+
+    // Deterministic Spiral Coordinates Jittering to distribute overlapping/null locations nicely
+    function getAlexandriaCoordinates(index) {
+      const centerLat = 31.2001;
+      const centerLng = 29.9187;
+      
+      // Creates a beautiful coastal spread along Alexandria's geographical layout
+      const angle = index * 0.45;
+      const radius = 0.007 + (index * 0.00075);
+      
+      // Scale lat by 0.6 to conform to the narrow coastline of Alexandria (East-West stretch)
+      const lat = centerLat + Math.sin(angle) * radius * 0.6;
+      const lng = centerLng + Math.cos(angle) * radius;
+      return [lat, lng];
+    }
+
+    // Helper to generate dynamic SVG Marker Pin based on category color
+    function createCustomMarkerIcon(category, isActive = false) {
+      const color = categoryColors[category] || categoryColors.default;
+      const size = isActive ? 'w-8 h-8' : 'w-6 h-6';
+      const shadow = isActive ? 'shadow-lg ring-4 ring-white/20 scale-125' : '';
+      
+      const svgHTML = `
+        <div class="flex items-center justify-center ${size} rounded-full bg-slate-950 border-2 border-slate-100 ${shadow} transition-all duration-300" style="border-color: ${color}">
+          <div class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></div>
+        </div>
+      `;
+      
+      return L.divIcon({
+        html: svgHTML,
+        className: 'custom-leaflet-marker',
+        iconSize: isActive ? [32, 32] : [24, 24],
+        iconAnchor: isActive ? [16, 16] : [12, 12]
+      });
+    }
+
+    // Load quests JSON (Check window.JOGO_QUESTS first as a fallback for local file:// access)
+    if (window.JOGO_QUESTS && window.JOGO_QUESTS.length > 0) {
+      console.log("Loaded quests from local jogo_quests.js");
+      allQuests = window.JOGO_QUESTS;
+      renderQuests(allQuests);
+    } else {
+      fetch('jogo_quests.json')
+        .then(res => res.json())
+        .then(quests => {
+          allQuests = quests;
+          renderQuests(allQuests);
+        })
+        .catch(err => {
+          console.error("Error loading quests JSON:", err);
+          document.getElementById('quest-list').innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-center p-6 text-red-400">
+              <span class="text-3xl mb-2">⚠️</span>
+              <p class="text-sm">Failed to load quests data. Please verify the JSON file or run a local HTTP server.</p>
+            </div>
+          `;
+        });
+    }
+
+    // Populate Sidebar Quest Cards and Add Markers
+    function renderQuests(questsToRender) {
+      const questListContainer = document.getElementById('quest-list');
+      questListContainer.innerHTML = '';
+
+      // Clear existing markers
+      Object.values(questMarkers).forEach(m => map.removeLayer(m));
+      questMarkers = {};
+
+      if (questsToRender.length === 0) {
+        questListContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-full text-center p-6 text-slate-500">
+            <span class="text-2xl mb-2">🔎</span>
+            <p class="text-sm">No matching quests found.</p>
+          </div>
+        `;
+        return;
+      }
+
+      questsToRender.forEach((q, idx) => {
+        // Fallback lat/lng to deterministic spiral coordinates
+        const [lat, lng] = (q.lat && q.lng) ? [q.lat, q.lng] : getAlexandriaCoordinates(idx);
+        const category = q.category || 'food';
+        const color = categoryColors[category] || categoryColors.default;
+
+        // 1. Create Map Marker
+        const markerIcon = createCustomMarkerIcon(category);
+        const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+        questMarkers[q.id] = marker;
+
+        // Custom Popup Content matching JOGO aesthetics
+        const popupContent = `
+          <div class="p-4 space-y-3 w-72 text-slate-200">
+            <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+              <div>
+                <h3 class="font-bold text-slate-100 text-sm capitalize">${q.title}</h3>
+                <span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold mt-1 inline-block" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40">
+                  ${category.replace('_', ' ')}
+                </span>
+              </div>
+              <span class="text-xs bg-amber-950/80 text-amber-400 px-2 py-0.5 rounded-full border border-amber-800/40 font-mono font-bold shrink-0">🪙 ${q.reward_coins}</span>
+            </div>
+            
+            <div class="space-y-1.5">
+              <p class="text-xs text-slate-300 italic text-right font-medium leading-relaxed" dir="rtl">
+                "${q.clue_ar || q.clue}"
+              </p>
+              <p class="text-[10px] text-slate-400 leading-normal">
+                ${q.description_en || 'Solve this riddle at the location to unlock JOGO rewards!'}
+              </p>
+            </div>
+
+            <div class="text-[10px] bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 space-y-1">
+              <div class="flex items-center space-x-1.5 text-slate-300">
+                <span>📸</span>
+                <strong class="text-slate-200">Lens Target:</strong>
+              </div>
+              <div class="text-slate-400 pl-4">${q.target_object_prompt || 'Capture signature target'}</div>
+            </div>
+
+            <button class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs py-2 rounded-lg transition-all" onclick="focusQuestCard('${q.id}')">
+              View Quest Card
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+
+        // Marker click event handler
+        marker.on('click', () => {
+          highlightActiveMarker(q.id);
+          const card = document.getElementById(`card-${q.id}`);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            highlightCard(q.id);
+          }
+        });
+
+        // 2. Create Quest Card HTML for Sidebar
+        const cardHTML = `
+          <div class="p-3.5 bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 rounded-xl cursor-pointer transition-all duration-200 space-y-2.5" id="card-${q.id}" onclick="selectQuest('${q.id}', ${lat}, ${lng})">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-sm text-slate-200 hover:text-slate-100 capitalize">${q.title}</h3>
+                <div class="flex space-x-1.5 mt-1">
+                  <span class="text-[8px] uppercase tracking-wider px-1.5 py-0.2 rounded font-semibold" style="background-color: ${color}15; color: ${color}; border: 1px solid ${color}30">
+                    ${category.replace('_', ' ')}
+                  </span>
+                  <span class="text-[8px] uppercase tracking-wider px-1.5 py-0.2 rounded font-semibold bg-slate-800 text-slate-400">
+                    ${q.difficulty || 'Medium'}
+                  </span>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-xs bg-amber-950/60 text-amber-300 border border-amber-900/50 px-2 py-0.5 rounded font-mono font-bold">
+                  🪙 ${q.reward_coins}
+                </span>
+              </div>
+            </div>
+            
+            <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed" dir="rtl">
+              "${q.clue_ar || q.clue}"
+            </p>
+
+            <div class="text-[10px] text-slate-400 bg-slate-950/40 p-2 rounded border border-slate-900 space-y-1">
+              <div>📸 <span class="text-slate-300 font-medium">Lens:</span> ${q.target_object_prompt || 'Capture signature target'}</div>
+            </div>
+          </div>
+        `;
+        questListContainer.insertAdjacentHTML('beforeend', cardHTML);
+      });
+    }
+
+    // Handles active card highlighting and scrolling in sidebar
+    function focusQuestCard(questId) {
+      const card = document.getElementById(`card-${questId}`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        highlightCard(questId);
+      }
+    }
+
+    // Highlight card CSS
+    function highlightCard(questId) {
+      document.querySelectorAll('#quest-list > div').forEach(c => {
+        c.classList.remove('ring-1', 'ring-emerald-500', 'bg-slate-900/80');
+      });
+      const card = document.getElementById(`card-${questId}`);
+      if (card) {
+        card.classList.add('ring-1', 'ring-emerald-500', 'bg-slate-900/80');
+      }
+    }
+
+    // Scale and animate active map marker pin
+    function highlightActiveMarker(questId) {
+      if (activeMarker && questMarkers[activeMarker]) {
+        // Reset old active marker
+        const oldQuest = allQuests.find(q => q.id === activeMarker);
+        if (oldQuest) {
+          questMarkers[activeMarker].setIcon(createCustomMarkerIcon(oldQuest.category || 'food'));
+          questMarkers[activeMarker].setZIndexOffset(0);
+        }
+      }
+      
+      activeMarker = questId;
+      
+      if (questMarkers[questId]) {
+        const quest = allQuests.find(q => q.id === questId);
+        if (quest) {
+          questMarkers[questId].setIcon(createCustomMarkerIcon(quest.category || 'food', true));
+          questMarkers[questId].setZIndexOffset(1000); // Bring pin to top layer
+        }
+      }
+    }
+
+    // Handle selection from sidebar
+    function selectQuest(questId, lat, lng) {
+      highlightCard(questId);
+      highlightActiveMarker(questId);
+      
+      map.flyTo([lat, lng], 15.5, {
+        animate: true,
+        duration: 1.2
+      });
+
+      setTimeout(() => {
+        if (questMarkers[questId]) {
+          questMarkers[questId].openPopup();
+        }
+      }, 800);
+
+      // On mobile screens, slide sidebar back after selecting quest
+      if (window.innerWidth < 768) {
+        toggleSidebar();
+      }
+    }
+
+    // Search and filter logic
+    const searchInput = document.getElementById('quest-search');
+    let activeCategory = 'all';
+
+    function applySearchAndFilters() {
+      const query = searchInput.value.toLowerCase().trim();
+      
+      const filtered = allQuests.filter(q => {
+        const matchesQuery = q.title.toLowerCase().includes(query) || 
+                             (q.clue_ar || '').toLowerCase().includes(query) ||
+                             (q.clue_en || '').toLowerCase().includes(query) ||
+                             (q.description_en || '').toLowerCase().includes(query);
+                             
+        const matchesCategory = activeCategory === 'all' || q.category === activeCategory;
+        
+        return matchesQuery && matchesCategory;
+      });
+
+      renderQuests(filtered);
+    }
+
+    searchInput.addEventListener('input', applySearchAndFilters);
+
+    // Category filter button click handler
+    document.getElementById('category-filters').addEventListener('click', (e) => {
+      if (e.target.classList.contains('filter-btn')) {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          btn.className = 'filter-btn text-xs px-2.5 py-1 rounded-md bg-slate-900 text-slate-400 border border-slate-800 transition-all hover:text-slate-200';
+        });
+
+        e.target.className = 'filter-btn active text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all';
+        activeCategory = e.target.getAttribute('data-category');
+        applySearchAndFilters();
+      }
+    });
+
+    // Mobile Navigation & Sidebar Slider logic
+    const sidebar = document.getElementById('sidebar');
+    const mobileToggleBtn = document.getElementById('mobile-toggle-btn');
+    const toggleIcon = document.getElementById('toggle-icon');
+    const toggleText = document.getElementById('toggle-text');
+
+    function toggleSidebar() {
+      const isOpen = sidebar.classList.contains('translate-x-0');
+      if (isOpen) {
+        sidebar.classList.remove('translate-x-0');
+        sidebar.classList.add('-translate-x-full');
+        toggleIcon.textContent = '📋';
+        toggleText.textContent = 'Show Quests';
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        sidebar.classList.add('translate-x-0');
+        toggleIcon.textContent = '🗺️';
+        toggleText.textContent = 'Show Map';
+      }
+    }
+
+    mobileToggleBtn.addEventListener('click', toggleSidebar);
+  </script>
+</body>
+</html>

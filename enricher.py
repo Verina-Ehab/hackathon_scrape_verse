@@ -283,7 +283,14 @@ def main():
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(enriched_quests, f, ensure_ascii=False, indent=2)
 
-    print(f"\n🎉 SUCCESS! Generated {len(enriched_quests)} JOGO Quests in: {output_file}")
+    # Also output as a JS file for direct local loading via file:// protocol
+    js_output_file = output_file.replace(".json", ".js")
+    with open(js_output_file, "w", encoding="utf-8") as f:
+        f.write("window.JOGO_QUESTS = ")
+        json.dump(enriched_quests, f, ensure_ascii=False, indent=2)
+        f.write(";\n")
+
+    print(f"\n🎉 SUCCESS! Generated {len(enriched_quests)} JOGO Quests in: {output_file} and {js_output_file}")
 
 if __name__ == "__main__":
     main()
